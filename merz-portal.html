@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buroform Portal — Merz Marketingservices</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background: #f5f3ef; font-family: 'DM Sans', sans-serif; color: #1a1a1a; }
+    input, select, textarea, button { font-family: 'DM Sans', sans-serif; }
+    @media print {
+      .np { display: none !important; }
+      body { background: white !important; }
+      header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo, useEffect, useCallback, useRef } = React;
+
+// ── USERS ─────────────────────────────────────────────────────────────────────
+const USERS = {
+  jesse: { password: "buroform2026", role: "admin",  displayName: "Jesse Marynen" },
+  kim:   { password: "buroform2026", role: "admin",  displayName: "Kim Van Oosterwijck" },
+  merz:  { password: "merz2026",     role: "viewer", displayName: "Merz Aesthetics" },
+};
+
+// ── INITIAL DATA ──────────────────────────────────────────────────────────────
+const initialData = {
+  lastUpdated: "23/02/2026",
+  indexHistory: [
+    { year: 2025, pct: 3.5,  date: "01/01/2025" },
+    { year: 2026, pct: 2.5,  date: "01/01/2026" },
+  ],
+  diensten: {
+    licentie: [
+      { label: "Kwartaallicentie",  value: "€ 858,00" },
+      { label: "Uurtarief",         value: "€ 95,00 / uur" },
+    ],
+    statisch: [
+      { range: "1 – 5 PDF's",   price: 40.00 },
+      { range: "6 – 25 PDF's",  price: 28.00 },
+      { range: "26 – 50 PDF's", price: 22.00 },
+      { range: "50+ PDF's",     price: 20.00 },
+    ],
+    variabel: [
+      { range: "1 – 5 PDF's",   price: 105.00 },
+      { range: "6 – 25 PDF's",  price: 95.00 },
+      { range: "26 – 50 PDF's", price: 85.00 },
+      { range: "50+ PDF's",     price: 80.00 },
+    ],
+    verwerking: [
+      { label: "Verwerking subsuppliermaterialen",  value: "€ 46,80" },
+      { label: "Levertijd: levering → live stock",  value: "48 uur" },
+      { label: "Meten & voorraadinventaris",        value: "€ 60,00 / uur" },
+      { label: "Stock intake controle",             value: "€ 60,00 / uur" },
+    ],
+  },
+  fulfilment: {
+    picknpack: [
+      { label: "Eenmalige administratiekost",          value: 7.25 },
+      { label: "Per orderlijn",                        value: 0.65 },
+      { label: "Per gepickt artikel (verpakt per)",    value: 0.04 },
+    ],
+    verzendingStandaard: [
+      { land: "België (BE)",     price: 11.50 },
+      { land: "Nederland (NL)",  price: 13.75 },
+      { land: "Luxemburg (LU)",  price: 13.75 },
+    ],
+    verzendingSpeciaal: [
+      { land: "België (BE)",     price: 32.50 },
+      { land: "Nederland (NL)",  price: 39.25 },
+      { land: "Luxemburg (LU)",  price: 39.25 },
+    ],
+    verzendingPallet: [
+      { land: "België (BE)",     price: 64.50 },
+      { land: "Nederland (NL)",  price: 76.25 },
+      { land: "Luxemburg (LU)",  price: 72.10 },
+    ],
+    opslag: [
+      { type: "Rek klein",     afmeting: "50 x 20 x 40 cm",   pricePerWeek: 1.06 },
+      { type: "Rek medium",    afmeting: "50 x 30 x 40 cm",   pricePerWeek: 1.10 },
+      { type: "Rek groot",     afmeting: "50 x 40 x 40 cm",   pricePerWeek: 1.35 },
+      { type: "Halve pallet",  afmeting: "120 x 40 x 100 cm", pricePerWeek: 2.10 },
+      { type: "Volle pallet",  afmeting: "120 x 80 x 110 cm", pricePerWeek: 3.20 },
+    ],
+  },
+  contacten: {
+    buroform: [
+      { name: "Kim Van Oosterwijck", email: "kim@buroform.be",        tel: "+32 15 288 999"     },
+      { name: "Jesse Marynen",       email: "jesse@buroform.be",      tel: "+32 472 72 94 74"   },
+    ],
+    merz: [
+      { name: "Joni Wisse",          email: "joni.wisse@merz.com",    tel: "+31 6 10 878 562"   },
+    ],
+    invoice: {
+      bedrijf:  "Merz Pharma Benelux BV",
+      adres:    "Hoevestein 36D",
+      postcode: "4903 SC Oosterhout, Nederland",
+      btwNr:    "NL 812670310B01",
+      email:    "financegeneralmanagement@merz.de",
+    },
+  },
+  categories: [
+    { id: "cards", name: "CARDS", products: [
+      { id: "aftercare-card", name: "After Care Card", format: "148 x 105 mm", orientation: "A6 landscape", pages: null, specs: "—",
+        quantities: [
+          { qty: 250,  total: 96.22,  perPiece: 1.9202 },
+          { qty: 100,  total: 99.09,  perPiece: 0.9866 },
+          { qty: 250,  total: 109.91, perPiece: 0.435  },
+          { qty: 500,  total: 128.15, perPiece: 0.2546 },
+          { qty: 1000, total: 164.01, perPiece: 0.1591 },
+          { qty: 2000, total: 237.11, perPiece: 0.1167 },
+        ]},
+    ]},
+    { id: "brochures", name: "Brochures / Folders", products: [
+      { id: "brochure-triptych-a4", name: "Brochure - Triptych A4", format: "628 x 297 mm", orientation: "A4 triptych landscape", pages: 2,
+        specs: "Arctic 250 gram, Volume, mat, opdikkend, 1.10 wit, FSC mix credit — Rillen, vouwen en onder folie per 25 ex met etiket thumbnail en PQC code",
+        quantities: [{ qty: 500, total: 791.62, perPiece: 1.5807 }, { qty: 1000, total: 990.96, perPiece: 0.9866 }, { qty: 2000, total: 1381.68, perPiece: 0.6896 }] },
+      { id: "flyer-a4", name: "Flyer A4", format: "210 x 297 mm", orientation: "A4 portrait", pages: 2,
+        specs: "Arctic 250 gram — Schoonsnijden en onder folie per 25 ex met etiket thumbnail en PQC code",
+        quantities: [{ qty: 100, total: 134.94, perPiece: 1.3473 }, { qty: 250, total: 169.85, perPiece: 0.679 }, { qty: 500, total: 229.47, perPiece: 0.4562 }, { qty: 1000, total: 371.84, perPiece: 0.3713 }, { qty: 2000, total: 609.47, perPiece: 0.3077 }] },
+      { id: "folder-a4", name: "Folder A4", format: "210 x 297 mm", orientation: "A4 portrait", pages: 4,
+        specs: "Arctic 250 gram — Rillen, vouwen en onder folie per 25 ex",
+        quantities: [{ qty: 500, total: 469.01, perPiece: 0.9336 }, { qty: 1000, total: 709.30, perPiece: 0.7108 }, { qty: 2000, total: 1239.21, perPiece: 0.6153 }] },
+      { id: "brochure-a4-8", name: "Brochure A4 (8 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 8,
+        specs: "Selfcovering: Arctic 250 gram — Geniet, onder folie per 25 ex",
+        quantities: [{ qty: 250, total: 475.80, perPiece: 1.899 }, { qty: 500, total: 733.91, perPiece: 1.464 }, { qty: 1000, total: 1094.93, perPiece: 1.0927 }, { qty: 2000, total: 1527.98, perPiece: 0.7638 }, { qty: 5000, total: 2715.42, perPiece: 0.541 }] },
+      { id: "brochure-a4-12", name: "Brochure A4 (12 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 12,
+        specs: "Selfcovering: Arctic 250 gram — Geniet, onder folie per 25 ex",
+        quantities: [{ qty: 250, total: 621.99, perPiece: 2.4931 }, { qty: 500, total: 1038.91, perPiece: 2.0793 }, { qty: 1000, total: 1389.64, perPiece: 1.3897 }, { qty: 2000, total: 1949.99, perPiece: 0.976 }, { qty: 5000, total: 3626.60, perPiece: 0.7214 }] },
+      { id: "brochure-a4-16", name: "Brochure A4 (16 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 16,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, geniet",
+        quantities: [{ qty: 250, total: 751.31, perPiece: 3.0023 }, { qty: 500, total: 1179.69, perPiece: 2.3551 }, { qty: 1000, total: 1844.12, perPiece: 1.8459 }, { qty: 2000, total: 2434.60, perPiece: 1.22 }, { qty: 5000, total: 4130.30, perPiece: 0.8275 }] },
+      { id: "brochure-a4-20", name: "Brochure A4 (20 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 20,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, geniet",
+        quantities: [{ qty: 250, total: 834.48, perPiece: 3.3418 }, { qty: 500, total: 1354.95, perPiece: 2.7052 }, { qty: 1000, total: 1708.65, perPiece: 1.708 }, { qty: 2000, total: 2372.12, perPiece: 1.1882 }, { qty: 5000, total: 4334.31, perPiece: 0.8699 }] },
+      { id: "brochure-a4-24", name: "Brochure A4 (24 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 24,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, geniet",
+        quantities: [{ qty: 250, total: 925.83, perPiece: 3.7025 }, { qty: 500, total: 1537.95, perPiece: 3.0765 }, { qty: 1000, total: 2030.73, perPiece: 2.0263 }, { qty: 2000, total: 2785.54, perPiece: 1.3897 }, { qty: 5000, total: 5002.13, perPiece: 0.9972 }] },
+      { id: "brochure-a4-28", name: "Brochure A4 (28 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 28,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, geniet",
+        quantities: [{ qty: 250, total: 1000.62, perPiece: 3.9995 }, { qty: 500, total: 1713.21, perPiece: 3.4266 }, { qty: 1000, total: 2124.08, perPiece: 2.1217 }, { qty: 2000, total: 2939.68, perPiece: 1.4746 }, { qty: 5000, total: 5422.03, perPiece: 1.0821 }] },
+      { id: "brochure-a4-32", name: "Brochure A4 (32 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 32,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, geniet",
+        quantities: [{ qty: 250, total: 1034.78, perPiece: 4.1374 }, { qty: 500, total: 1794.36, perPiece: 3.5858 }, { qty: 1000, total: 2477.67, perPiece: 2.4824 }, { qty: 2000, total: 3455.16, perPiece: 1.7292 }, { qty: 5000, total: 6237.94, perPiece: 1.2518 }] },
+      { id: "brochure-a4-36", name: "Brochure A4 (36 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 36,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, garenloos gebonden",
+        quantities: [{ qty: 250, total: 1413.19, perPiece: 5.6545 }, { qty: 500, total: 2390.58, perPiece: 4.7845 }, { qty: 1000, total: 2764.00, perPiece: 2.7689 }, { qty: 2000, total: 3841.96, perPiece: 1.9202 }, { qty: 5000, total: 7059.17, perPiece: 1.411 }] },
+      { id: "brochure-a4-40", name: "Brochure A4 (40 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 40,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, garenloos gebonden",
+        quantities: [{ qty: 250, total: 1499.87, perPiece: 6.0046 }, { qty: 500, total: 2570.29, perPiece: 5.1452 }, { qty: 1000, total: 2970.13, perPiece: 2.9704 }, { qty: 2000, total: 4076.52, perPiece: 2.0369 }, { qty: 5000, total: 7417.85, perPiece: 1.4852 }] },
+      { id: "brochure-a4-44", name: "Brochure A4 (44 pag.)", format: "210 x 297 mm", orientation: "A4 portrait", pages: 44,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, garenloos gebonden",
+        quantities: [{ qty: 250, total: 1579.43, perPiece: 6.3228 }, { qty: 500, total: 2734.19, perPiece: 5.4635 }, { qty: 1000, total: 3080.14, perPiece: 3.0765 }, { qty: 2000, total: 4265.57, perPiece: 2.1324 }, { qty: 5000, total: 7923.46, perPiece: 1.5807 }] },
+      { id: "brochure-triptych-us", name: "Brochure - Triptych US", format: "297 x 210 mm", orientation: "US triptych landscape", pages: 2,
+        specs: "Arctic 250 gram — Rillen, vouwen en onder folie per 25 ex",
+        quantities: [{ qty: 500, total: 334.60, perPiece: 0.6684 }, { qty: 1000, total: 482.70, perPiece: 0.488 }, { qty: 2000, total: 874.16, perPiece: 0.435 }, { qty: 5000, total: 1300.63, perPiece: 0.2652 }] },
+      { id: "flyer-a5", name: "Flyer A5", format: "148 x 210 mm", orientation: "A5 portrait", pages: 2,
+        specs: "Arctic 250 gram — Schoonsnijden en onder folie per 25 ex",
+        quantities: [{ qty: 100, total: 120.09, perPiece: 2.3976 }, { qty: 100, total: 125.93, perPiece: 1.2624 }, { qty: 250, total: 145.98, perPiece: 0.5835 }, { qty: 500, total: 178.55, perPiece: 0.3607 }, { qty: 1000, total: 245.17, perPiece: 0.244 }, { qty: 2000, total: 401.65, perPiece: 0.2016 }] },
+      { id: "folder-a5", name: "Folder A5", format: "148 x 210 mm", orientation: "A5 portrait", pages: 4,
+        specs: "Selfcovering: Arctic 250 gram — Rillen, vouwen en onder folie per 25 ex",
+        quantities: [{ qty: 250, total: 336.51, perPiece: 1.3473 }, { qty: 500, total: 469.01, perPiece: 0.9336 }, { qty: 1000, total: 709.30, perPiece: 0.7108 }, { qty: 2000, total: 940.04, perPiece: 0.4668 }] },
+      { id: "brochure-a5-8", name: "Brochure A5 (8 pag.)", format: "148 x 210 mm", orientation: "A5 portrait", pages: 8,
+        specs: "Selfcovering: Arctic 250 gram — Geniet, onder folie per 25 ex",
+        quantities: [{ qty: 250, total: 410.66, perPiece: 1.6444 }, { qty: 500, total: 568.42, perPiece: 1.1351 }, { qty: 1000, total: 875.96, perPiece: 0.8805 }, { qty: 2000, total: 1163.57, perPiece: 0.5835 }, { qty: 5000, total: 1848.15, perPiece: 0.3713 }] },
+      { id: "brochure-a5-12", name: "Brochure A5 (12 pag.)", format: "148 x 210 mm", orientation: "A5 portrait", pages: 12,
+        specs: "Selfcovering: Arctic 250 gram — Geniet, onder folie per 25 ex",
+        quantities: [{ qty: 250, total: 509.86, perPiece: 2.0369 }, { qty: 500, total: 721.61, perPiece: 1.4428 }, { qty: 1000, total: 1126.44, perPiece: 1.1245 }, { qty: 2000, total: 1644.78, perPiece: 0.8275 }, { qty: 5000, total: 2532.73, perPiece: 0.5092 }] },
+      { id: "brochure-a5-16", name: "Brochure A5 (16 pag.)", format: "148 x 210 mm", orientation: "A5 portrait", pages: 16,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, geniet",
+        quantities: [{ qty: 250, total: 541.68, perPiece: 2.1642 }, { qty: 500, total: 765.63, perPiece: 1.5277 }, { qty: 1000, total: 1404.92, perPiece: 1.4004 }, { qty: 2000, total: 1755.01, perPiece: 0.8805 }, { qty: 5000, total: 2737.91, perPiece: 0.5517 }] },
+      { id: "brochure-a5-20", name: "Brochure A5 (20 pag.)", format: "148 x 210 mm", orientation: "A5 portrait", pages: 20,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 130 gram — Cover recto mat laminaat, geniet",
+        quantities: [{ qty: 250, total: 591.33, perPiece: 2.3658 }, { qty: 500, total: 866.73, perPiece: 1.7292 }, { qty: 1000, total: 1412.98, perPiece: 1.411 }, { qty: 2000, total: 1823.22, perPiece: 0.9124 }, { qty: 5000, total: 2977.45, perPiece: 0.5941 }] },
+      { id: "brochure-a6-patient", name: "Brochure A6 (Patient passport)", format: "105 x 150 mm", orientation: "A6 portrait", pages: 20,
+        specs: "Cover Arctic 250 gram, Binnenwerk Arctic 150 gram — Cover recto mat laminaat, geniet, onder folie per 25 ex",
+        quantities: [{ qty: 250, total: 585.60, perPiece: 2.3445 }, { qty: 500, total: 877.66, perPiece: 1.7504 }, { qty: 1000, total: 1576.67, perPiece: 1.5807 }, { qty: 2000, total: 1982.99, perPiece: 0.9866 }, { qty: 5000, total: 3128.63, perPiece: 0.6259 }] },
+      { id: "ultherapy-hcp", name: "Ultherapy HCP Productbrochure EN", format: "Open: 560 x 210 mm / Gesloten 279.4 x 209.5 mm", orientation: "Landscape", pages: 8,
+        specs: "Arctic 250 gram — Rillen, vouwen en onder folie per 25 ex met etiket thumbnail en PQC code",
+        quantities: [{ qty: 250, total: 663.15, perPiece: 2.6522 }, { qty: 500, total: 722.67, perPiece: 1.4428 }, { qty: 1000, total: 830.45, perPiece: 0.8275 }] },
+    ]},
+    { id: "rollups", name: "Rollup Banners", products: [
+      { id: "mini-rollup-a4", name: "Mini Roll-up Banner A4", format: "210 x 297 mm", orientation: "A4 portrait", pages: 1, specs: "—",
+        quantities: [{ qty: 5, total: 126.46, perPiece: 25.2913 }, { qty: 10, total: 218.54, perPiece: 21.854 }, { qty: 25, total: 511.98, perPiece: 20.4749 }, { qty: 50, total: 919.04, perPiece: 18.385 }, { qty: 100, total: 1688.49, perPiece: 16.8891 }] },
+      { id: "mini-rollup-a3", name: "Mini Roll-up Banner A3", format: "297 x 420 mm", orientation: "A3 portrait", pages: 1, specs: "—",
+        quantities: [{ qty: 5, total: 160.51, perPiece: 32.1021 }, { qty: 10, total: 276.99, perPiece: 27.6994 }, { qty: 25, total: 672.49, perPiece: 26.9038 }, { qty: 50, total: 1283.45, perPiece: 25.6732 }, { qty: 100, total: 2300.40, perPiece: 22.9998 }] },
+    ]},
+    { id: "posters", name: "Posters / Notepads / Flipovers", products: [
+      { id: "treatment-bloc-staand", name: "Treatment Bloc - Staand", format: "210 x 297 mm", orientation: "A4 portrait", pages: 2,
+        specs: "Met cover open formaat 424 x 297mm — Bloc van 25 vellen, links gelijmd, op wit onderkarton en bloc in cover verlijmen",
+        quantities: [{ qty: 100, total: 768.60, perPiece: 7.6913 }, { qty: 250, total: 1224.04, perPiece: 4.9012 }, { qty: 500, total: 1955.30, perPiece: 3.9146 }] },
+      { id: "treatment-bloc-liggend", name: "Treatment Bloc - Liggend", format: "297 x 210 mm", orientation: "A4 landscape", pages: 2,
+        specs: "Bloc van 25 vellen, links gelijmd op onderkarton (wit 350 gram)",
+        quantities: [{ qty: 100, total: 510.81, perPiece: 5.1134 }, { qty: 250, total: 851.99, perPiece: 3.4054 }, { qty: 500, total: 1424.12, perPiece: 2.8431 }] },
+      { id: "posters-scales", name: "Posters (Scales poster incl. mirror)", format: "841 x 594 mm", orientation: "Landscape", pages: 1,
+        specs: "Spiegelplaat met bedrukte vinyl en contourgesneden — 2x bevestigingshaken, onder folie + dubbel verzendkarton",
+        quantities: [{ qty: 25, total: 2224.76, perPiece: 88.9862 }, { qty: 50, total: 3641.14, perPiece: 72.8185 }, { qty: 100, total: 6201.45, perPiece: 62.0188 }] },
+      { id: "consultation-flipover", name: "Consultation Flip Over", format: "297 x 215 mm", orientation: "Landscape", pages: 60,
+        specs: "Sets van 60 pagina's met 9 tabs — Recto/Verso gloss laminaat, 2x 6mm klasseergaten boven, bestaande kapvorm met 9 tabs",
+        quantities: [{ qty: 50, total: 1964.21, perPiece: 39.2842 }, { qty: 100, total: 3192.49, perPiece: 31.9217 }, { qty: 250, total: 6806.04, perPiece: 27.2221 }] },
+    ]},
+  ],
+};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const STORAGE_KEY = "merz-buroform-v4";
+const fmt  = n => Number(n).toLocaleString("nl-BE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtE = n => `€ ${fmt(n)}`;
+const today = () => new Date().toLocaleDateString("nl-BE");
+const deepCopy = o => JSON.parse(JSON.stringify(o));
+
+function loadData() {
+  try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : initialData; } catch { return initialData; }
+}
+function saveData(d) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
+}
+
+// ── STYLE TOKENS ─────────────────────────────────────────────────────────────
+const IS  = { border:"1px solid #ddd", borderRadius:4, padding:"7px 10px", fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:"none", background:"#fff", width:"100%", boxSizing:"border-box" };
+const BP  = { background:"#1a1a1a", color:"#fff", border:"none", borderRadius:4, padding:"10px 22px", fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, cursor:"pointer" };
+const BS  = { background:"#fff", color:"#333", border:"1px solid #ddd", borderRadius:4, padding:"10px 22px", fontFamily:"'DM Sans',sans-serif", fontSize:13, cursor:"pointer" };
+const TH  = { textAlign:"left", padding:"8px 12px", fontWeight:600, color:"#555", fontSize:11, letterSpacing:1, textTransform:"uppercase" };
+
+// ── SMALL COMPONENTS ──────────────────────────────────────────────────────────
+function Lbl({ label, children, span }) {
+  return (
+    <label style={{ display:"flex", flexDirection:"column", gap:4, fontSize:11, color:"#888", gridColumn: span ? "1/-1" : undefined }}>
+      {label && <span style={{ textTransform:"uppercase", letterSpacing:0.5 }}>{label}</span>}
+      {children}
+    </label>
+  );
+}
+function Card({ title, subtitle, children }) {
+  return (
+    <div style={{ background:"#fff", border:"1px solid #e8e0d0", borderRadius:6, padding:24 }}>
+      <div style={{ fontSize:11, letterSpacing:3, color:"#c8a96e", textTransform:"uppercase", fontWeight:600, marginBottom: subtitle ? 2 : 16 }}>{title}</div>
+      {subtitle && <div style={{ fontSize:11, color:"#bbb", marginBottom:14 }}>{subtitle}</div>}
+      {children}
+    </div>
+  );
+}
+function RRow({ label, value }) {
+  return (
+    <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid #f0ebe2", fontSize:13 }}>
+      <span style={{ color:"#555" }}>{label}</span>
+      <span style={{ fontWeight:600, fontFamily:"monospace" }}>{value}</span>
+    </div>
+  );
+}
+function Overlay({ children, onClose }) {
+  return (
+    <div onClick={e => e.target===e.currentTarget && onClose()}
+      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.62)", zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div style={{ background:"#fff", borderRadius:8, padding:36, maxWidth:720, width:"100%", maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 80px rgba(0,0,0,0.4)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [un, setUn] = useState(""); const [pw, setPw] = useState(""); const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  const go = () => {
+    setBusy(true); setErr("");
+    setTimeout(() => {
+      const u = USERS[un.trim().toLowerCase()];
+      if (u && u.password === pw) onLogin({ username: un.trim().toLowerCase(), ...u });
+      else setErr("Ongeldige gebruikersnaam of wachtwoord.");
+      setBusy(false);
+    }, 350);
+  };
+  return (
+    <div style={{ minHeight:"100vh", background:"#111", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:420, background:"#fff", borderRadius:10, overflow:"hidden", boxShadow:"0 40px 100px rgba(0,0,0,0.65)" }}>
+        <div style={{ background:"#1a1a1a", padding:"36px 40px 28px" }}>
+          <div style={{ fontSize:10, letterSpacing:4, color:"#c8a96e", textTransform:"uppercase", marginBottom:8 }}>Merz Marketingservices</div>
+          <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:28, color:"#fff" }}>Buroform Portal</div>
+        </div>
+        <div style={{ padding:"34px 40px" }}>
+          <p style={{ fontSize:13, color:"#999", margin:"0 0 26px" }}>Log in met uw gebruikersgegevens.</p>
+          <Lbl label="Gebruikersnaam">
+            <input value={un} onChange={e=>setUn(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={IS} placeholder="jesse / kim / merz" autoComplete="username" />
+          </Lbl>
+          <div style={{ height:14 }} />
+          <Lbl label="Wachtwoord">
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} style={IS} autoComplete="current-password" />
+          </Lbl>
+          {err && <div style={{ color:"#c0392b", fontSize:12, margin:"12px 0", padding:"8px 12px", background:"#fdf3f2", borderRadius:4, border:"1px solid #f5c6c6" }}>{err}</div>}
+          <button onClick={go} disabled={busy} style={{ ...BP, width:"100%", marginTop:22, padding:"13px", fontSize:14 }}>{busy?"Laden…":"Inloggen"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PRODUCT ROW ───────────────────────────────────────────────────────────────
+function ProductRow({ product, isAdmin, onEdit }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ background:"#fff", border:"1px solid #e8e0d0", borderRadius:6, marginBottom:9, overflow:"hidden" }}>
+      <div onClick={()=>setOpen(v=>!v)} style={{ display:"grid", gridTemplateColumns:"1fr 150px 100px 90px", alignItems:"center", padding:"13px 18px", cursor:"pointer", background:open?"#faf8f4":"#fff", gap:10 }}>
+        <div>
+          <div style={{ fontSize:10, letterSpacing:2, color:"#c8a96e", textTransform:"uppercase", fontWeight:600 }}>{product.categoryName}</div>
+          <div style={{ fontSize:14, fontWeight:600, marginTop:2 }}>{product.name}</div>
+          <div style={{ fontSize:11, color:"#aaa", marginTop:1 }}>{product.format} — {product.orientation}</div>
+        </div>
+        <div style={{ fontSize:12, color:"#888" }}>{product.pages ? `${product.pages} pag.` : "—"}</div>
+        <div style={{ fontSize:12, color:"#888" }}>{product.quantities.length} oplagen</div>
+        <div style={{ display:"flex", gap:8, justifyContent:"flex-end", alignItems:"center" }}>
+          {isAdmin && <button onClick={e=>{e.stopPropagation();onEdit(product);}} style={{ border:"1px solid #ddd", borderRadius:3, padding:"4px 10px", fontSize:11, background:"#fff", color:"#444", cursor:"pointer" }}>Bewerk</button>}
+          <span style={{ color:"#ccc", fontSize:15 }}>{open?"▴":"▾"}</span>
+        </div>
+      </div>
+      {open && (
+        <div style={{ padding:"0 18px 18px", borderTop:"1px solid #f0e8d8" }}>
+          <div style={{ fontSize:11, color:"#aaa", margin:"10px 0 8px", fontStyle:"italic" }}>{product.specs}</div>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <thead><tr style={{ background:"#f5f3ef" }}>
+              <th style={TH}>Oplage</th>
+              <th style={{...TH, textAlign:"right"}}>Prijs (excl. BTW)</th>
+              <th style={{...TH, textAlign:"right"}}>Prijs/stuk</th>
+            </tr></thead>
+            <tbody>{product.quantities.map((q,i)=>(
+              <tr key={i} style={{ borderBottom:"1px solid #f0ebe2", background:i%2===0?"#fff":"#faf8f4" }}>
+                <td style={{ padding:"8px 12px", fontWeight:500 }}>{q.qty.toLocaleString("nl-BE")}</td>
+                <td style={{ padding:"8px 12px", textAlign:"right", fontFamily:"monospace" }}>{fmtE(q.total)}</td>
+                <td style={{ padding:"8px 12px", textAlign:"right", fontFamily:"monospace", color:"#c8a96e", fontWeight:600 }}>{fmtE(q.perPiece)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── EDIT PRODUCT MODAL ────────────────────────────────────────────────────────
+function EditProductModal({ product, categories, onSave, onClose }) {
+  const [f, setF] = useState(deepCopy(product));
+  const upQ = (i,k,v) => { const qs=[...f.quantities]; qs[i]={...qs[i],[k]:parseFloat(v)||0}; setF({...f,quantities:qs}); };
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:21, marginBottom:20 }}>Product bewerken</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:18 }}>
+        <Lbl label="Naam"><input value={f.name} onChange={e=>setF({...f,name:e.target.value})} style={IS}/></Lbl>
+        <Lbl label="Formaat"><input value={f.format} onChange={e=>setF({...f,format:e.target.value})} style={IS}/></Lbl>
+        <Lbl label="Oriëntatie"><input value={f.orientation} onChange={e=>setF({...f,orientation:e.target.value})} style={IS}/></Lbl>
+        <Lbl label="Pagina's"><input type="number" value={f.pages||""} onChange={e=>setF({...f,pages:parseInt(e.target.value)||null})} style={IS}/></Lbl>
+        <Lbl label="Specificaties" span><textarea value={f.specs} onChange={e=>setF({...f,specs:e.target.value})} rows={2} style={{...IS,resize:"vertical"}}/></Lbl>
+        <Lbl label="Categorie" span>
+          <select value={f.categoryId} onChange={e=>setF({...f,categoryId:e.target.value})} style={IS}>
+            {categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </Lbl>
+      </div>
+      <div style={{ fontSize:11, color:"#888", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>Oplagen & Prijzen</div>
+      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, marginBottom:10 }}>
+        <thead><tr style={{ background:"#f5f3ef" }}>
+          <th style={TH}>Oplage</th><th style={TH}>Prijs totaal (€)</th><th style={TH}>Prijs/stuk (€)</th><th></th>
+        </tr></thead>
+        <tbody>{f.quantities.map((q,i)=>(
+          <tr key={i} style={{ borderBottom:"1px solid #eee" }}>
+            <td style={{ padding:"4px 6px" }}><input type="number" value={q.qty} onChange={e=>upQ(i,"qty",e.target.value)} style={{...IS,width:80}}/></td>
+            <td style={{ padding:"4px 6px" }}><input type="number" step="0.01" value={q.total} onChange={e=>upQ(i,"total",e.target.value)} style={{...IS,width:110}}/></td>
+            <td style={{ padding:"4px 6px" }}><input type="number" step="0.0001" value={q.perPiece} onChange={e=>upQ(i,"perPiece",e.target.value)} style={{...IS,width:100}}/></td>
+            <td style={{ padding:"4px 6px" }}><button onClick={()=>setF({...f,quantities:f.quantities.filter((_,j)=>j!==i)})} style={{ background:"none", border:"none", color:"#e44", cursor:"pointer", fontSize:16 }}>×</button></td>
+          </tr>
+        ))}</tbody>
+      </table>
+      <button onClick={()=>setF({...f,quantities:[...f.quantities,{qty:0,total:0,perPiece:0}]})} style={{...BS,fontSize:12,marginBottom:20}}>+ Oplage toevoegen</button>
+      <div style={{ display:"flex", gap:10 }}>
+        <button onClick={()=>onSave(f)} style={BP}>Opslaan</button>
+        <button onClick={onClose} style={BS}>Annuleren</button>
+      </div>
+    </Overlay>
+  );
+}
+
+// ── INDEX MODAL ───────────────────────────────────────────────────────────────
+function IndexModal({ onApply, onClose }) {
+  const [pct, setPct] = useState(""); const [year, setYear] = useState(new Date().getFullYear());
+  return (
+    <Overlay onClose={onClose}>
+      <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:22, marginBottom:6 }}>Prijzen Indexeren</div>
+      <p style={{ fontSize:13, color:"#888", margin:"0 0 22px" }}>Alle productprijzen worden procentueel aangepast.</p>
+      <Lbl label="Jaar"><input type="number" value={year} onChange={e=>setYear(parseInt(e.target.value))} style={IS}/></Lbl>
+      <div style={{ height:14 }}/>
+      <Lbl label="Indexpercentage (bv. 3.5 voor +3.5%)">
+        <input type="number" step="0.1" value={pct} onChange={e=>setPct(e.target.value)} placeholder="bv. 3.5" style={IS}/>
+      </Lbl>
+      {pct && !isNaN(parseFloat(pct)) && (
+        <div style={{ background:"#f5f3ef", borderRadius:4, padding:"10px 14px", fontSize:13, margin:"16px 0", color:"#555" }}>
+          Alle prijzen worden <strong>{parseFloat(pct)>0?"verhoogd":"verlaagd"}</strong> met <strong>{Math.abs(parseFloat(pct))}%</strong>
+        </div>
+      )}
+      <div style={{ display:"flex", gap:10 }}>
+        <button onClick={()=>onApply(year,parseFloat(pct))} style={BP}>Toepassen</button>
+        <button onClick={onClose} style={BS}>Annuleren</button>
+      </div>
+    </Overlay>
+  );
+}
+
+// ── DIENSTEN ──────────────────────────────────────────────────────────────────
+function DienstenAdmin({ data, onChange }) {
+  const d = data.diensten;
+  const upLic  = (i,v) => { const a=[...d.licentie];  a[i]={...a[i],value:v};  onChange({...data,diensten:{...d,licentie:a}}); };
+  const upTier = (s,i,v)=>{ const a=[...d[s]];        a[i]={...a[i],price:parseFloat(v)||0}; onChange({...data,diensten:{...d,[s]:a}}); };
+  const upVerw = (i,k,v)=>{ const a=[...d.verwerking]; a[i]={...a[i],[k]:v};   onChange({...data,diensten:{...d,verwerking:a}}); };
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      <Card title="Licentie & Tarieven">
+        {d.licentie.map((r,i)=>(
+          <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:"1px solid #f0ebe2", gap:12 }}>
+            <span style={{ fontSize:13, color:"#555", flex:1 }}>{r.label}</span>
+            <input defaultValue={r.value} onBlur={e=>upLic(i,e.target.value)} style={{...IS,width:180,textAlign:"right"}}/>
+          </div>
+        ))}
+      </Card>
+      <Card title="Verwerking & Subsupplier">
+        {d.verwerking.map((r,i)=>(
+          <div key={i} style={{ display:"flex", gap:8, alignItems:"center", padding:"6px 0", borderBottom:"1px solid #f0ebe2" }}>
+            <input defaultValue={r.label} onBlur={e=>upVerw(i,"label",e.target.value)} style={{...IS,flex:1,fontSize:12}}/>
+            <input defaultValue={r.value} onBlur={e=>upVerw(i,"value",e.target.value)} style={{...IS,width:150,textAlign:"right"}}/>
+          </div>
+        ))}
+      </Card>
+      {[["statisch","Producten toevoegen — Statisch"],["variabel","Producten toevoegen — Variabel"]].map(([sec,title])=>(
+        <Card key={sec} title={title} subtitle="per PDF">
+          {d[sec].map((r,i)=>(
+            <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:"1px solid #f0ebe2", gap:12 }}>
+              <span style={{ fontSize:13, color:"#555", flex:1 }}>{r.range}</span>
+              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                <span style={{ color:"#888" }}>€</span>
+                <input type="number" step="0.01" defaultValue={r.price} onBlur={e=>upTier(sec,i,e.target.value)} style={{...IS,width:80,textAlign:"right"}}/>
+              </div>
+            </div>
+          ))}
+        </Card>
+      ))}
+    </div>
+  );
+}
+function DienstenView({ data }) {
+  const d = data.diensten;
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      <Card title="Licentie & Tarieven">{d.licentie.map((r,i)=><RRow key={i} label={r.label} value={r.value}/>)}</Card>
+      <Card title="Verwerking & Subsupplier">{d.verwerking.map((r,i)=><RRow key={i} label={r.label} value={r.value}/>)}</Card>
+      <Card title="Producten toevoegen — Statisch" subtitle="per PDF">{d.statisch.map((r,i)=><RRow key={i} label={r.range} value={fmtE(r.price)}/>)}</Card>
+      <Card title="Producten toevoegen — Variabel" subtitle="per PDF">{d.variabel.map((r,i)=><RRow key={i} label={r.range} value={fmtE(r.price)}/>)}</Card>
+    </div>
+  );
+}
+
+// ── FULFILMENT ────────────────────────────────────────────────────────────────
+function FulfilmentAdmin({ data, onChange }) {
+  const f = data.fulfilment;
+  const upSec = (sec,i,field,v) => {
+    const a=[...f[sec]]; a[i]={...a[i],[field]:typeof a[i][field]==="number"?(parseFloat(v)||0):v};
+    onChange({...data,fulfilment:{...f,[sec]:a}});
+  };
+  const ShCard = ({title,section}) => (
+    <Card title={title} subtitle="per pakket">
+      {f[section].map((r,i)=>(
+        <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:"1px solid #f0ebe2", gap:12 }}>
+          <span style={{ fontSize:13, color:"#555", flex:1 }}>{r.land}</span>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <span style={{ color:"#888" }}>€</span>
+            <input type="number" step="0.01" defaultValue={r.price} onBlur={e=>upSec(section,i,"price",e.target.value)} style={{...IS,width:80,textAlign:"right"}}/>
+          </div>
+        </div>
+      ))}
+    </Card>
+  );
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      <Card title="Pick & Pack">
+        {f.picknpack.map((r,i)=>(
+          <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:"1px solid #f0ebe2", gap:12 }}>
+            <span style={{ fontSize:13, color:"#555", flex:1 }}>{r.label}</span>
+            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+              <span style={{ color:"#888" }}>€</span>
+              <input type="number" step="0.01" defaultValue={r.value} onBlur={e=>upSec("picknpack",i,"value",e.target.value)} style={{...IS,width:80,textAlign:"right"}}/>
+            </div>
+          </div>
+        ))}
+      </Card>
+      <ShCard title="Verzending Standaard" section="verzendingStandaard"/>
+      <ShCard title="Verzending Speciaal" section="verzendingSpeciaal"/>
+      <ShCard title="Verzending per Pallet (max. 400 kg)" section="verzendingPallet"/>
+      <div style={{ gridColumn:"1/-1" }}>
+        <Card title="Opslagkosten" subtitle="prijs per week — maandelijks gefactureerd">
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <thead><tr style={{ background:"#f5f3ef" }}>
+              <th style={TH}>Type</th><th style={TH}>Afmetingen</th><th style={{...TH,textAlign:"right"}}>€/week</th>
+            </tr></thead>
+            <tbody>{f.opslag.map((r,i)=>(
+              <tr key={i} style={{ borderBottom:"1px solid #f0ebe2" }}>
+                <td style={{ padding:"5px 8px" }}><input defaultValue={r.type} onBlur={e=>upSec("opslag",i,"type",e.target.value)} style={{...IS}}/></td>
+                <td style={{ padding:"5px 8px" }}><input defaultValue={r.afmeting} onBlur={e=>upSec("opslag",i,"afmeting",e.target.value)} style={{...IS}}/></td>
+                <td style={{ padding:"5px 8px", textAlign:"right" }}><input type="number" step="0.01" defaultValue={r.pricePerWeek} onBlur={e=>upSec("opslag",i,"pricePerWeek",e.target.value)} style={{...IS,width:80,textAlign:"right"}}/></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </Card>
+      </div>
+    </div>
+  );
+}
+function FulfilmentView({ data }) {
+  const f = data.fulfilment;
+  const ShCard = ({title,section}) => (
+    <Card title={title} subtitle="per pakket">{f[section].map((r,i)=><RRow key={i} label={r.land} value={fmtE(r.price)}/>)}</Card>
+  );
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      <Card title="Pick & Pack">{f.picknpack.map((r,i)=><RRow key={i} label={r.label} value={fmtE(r.value)}/>)}</Card>
+      <ShCard title="Verzending Standaard" section="verzendingStandaard"/>
+      <ShCard title="Verzending Speciaal" section="verzendingSpeciaal"/>
+      <ShCard title="Verzending per Pallet (max. 400 kg)" section="verzendingPallet"/>
+      <div style={{ gridColumn:"1/-1" }}>
+        <Card title="Opslagkosten" subtitle="prijs per week — maandelijks gefactureerd">
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <thead><tr style={{ background:"#f5f3ef" }}>
+              <th style={TH}>Type</th><th style={TH}>Afmetingen</th><th style={{...TH,textAlign:"right"}}>€/week</th>
+            </tr></thead>
+            <tbody>{f.opslag.map((r,i)=>(
+              <tr key={i} style={{ borderBottom:"1px solid #f0ebe2", background:i%2===0?"#fff":"#faf8f4" }}>
+                <td style={{ padding:"9px 12px", fontWeight:500 }}>{r.type}</td>
+                <td style={{ padding:"9px 12px", color:"#888", fontSize:12 }}>{r.afmeting}</td>
+                <td style={{ padding:"9px 12px", textAlign:"right", fontWeight:600, fontFamily:"monospace", color:"#c8a96e" }}>{fmtE(r.pricePerWeek)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ── CONTACTEN ─────────────────────────────────────────────────────────────────
+function ContactenAdmin({ data, onChange }) {
+  const c = data.contacten;
+  const upC   = (g,i,k,v) => { const a=[...c[g]]; a[i]={...a[i],[k]:v}; onChange({...data,contacten:{...c,[g]:a}}); };
+  const upInv = (k,v) => onChange({...data,contacten:{...c,invoice:{...c.invoice,[k]:v}}});
+  const CCard = ({title,group}) => (
+    <Card title={title}>
+      {c[group].map((p,i)=>(
+        <div key={i} style={{ borderBottom:i<c[group].length-1?"1px solid #f0ebe2":"none", paddingBottom:16, marginBottom:16 }}>
+          <Lbl label="Naam"><input defaultValue={p.name}  onBlur={e=>upC(group,i,"name",e.target.value)}  style={IS}/></Lbl>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
+            <Lbl label="E-mail"><input defaultValue={p.email} onBlur={e=>upC(group,i,"email",e.target.value)} style={IS}/></Lbl>
+            <Lbl label="Tel">   <input defaultValue={p.tel}   onBlur={e=>upC(group,i,"tel",e.target.value)}   style={IS}/></Lbl>
+          </div>
+        </div>
+      ))}
+    </Card>
+  );
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      <CCard title="Buroform — Contactpersonen" group="buroform"/>
+      <CCard title="Merz — Contactpersoon" group="merz"/>
+      <div style={{ gridColumn:"1/-1" }}>
+        <Card title="E-Invoice Gegevens">
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
+            {[["bedrijf","Bedrijf"],["adres","Adres"],["postcode","Postcode & Stad"],["btwNr","BTW-nummer"],["email","Finance e-mail"]].map(([k,label])=>(
+              <Lbl key={k} label={label}><input defaultValue={c.invoice[k]} onBlur={e=>upInv(k,e.target.value)} style={IS}/></Lbl>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+function ContactenView({ data }) {
+  const c = data.contacten;
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      {[["Buroform — Contactpersonen",c.buroform],["Merz — Contactpersoon",c.merz]].map(([title,people])=>(
+        <Card key={title} title={title}>
+          {people.map((p,i)=>(
+            <div key={i} style={{ borderBottom:i<people.length-1?"1px solid #f0ebe2":"none", paddingBottom:16, marginBottom:16 }}>
+              <div style={{ fontWeight:600, fontSize:15, marginBottom:6 }}>{p.name}</div>
+              <div style={{ fontSize:13, color:"#555", marginBottom:3 }}>✉ <a href={`mailto:${p.email}`} style={{ color:"#1a1a1a" }}>{p.email}</a></div>
+              <div style={{ fontSize:13, color:"#555" }}>☎ {p.tel}</div>
+            </div>
+          ))}
+        </Card>
+      ))}
+      <div style={{ gridColumn:"1/-1" }}>
+        <Card title="E-Invoice Gegevens — Merz Pharma Benelux BV">
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:14 }}>
+            {[["Bedrijf",c.invoice.bedrijf],["Adres",c.invoice.adres],["Postcode & Stad",c.invoice.postcode],["BTW-nummer",c.invoice.btwNr],["Finance e-mail",c.invoice.email]].map(([label,val])=>(
+              <div key={label} style={{ background:"#f9f7f4", borderRadius:4, padding:"12px 14px" }}>
+                <div style={{ fontSize:10, color:"#aaa", letterSpacing:1, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
+                <div style={{ fontSize:12, fontWeight:500 }}>{label.includes("mail")?<a href={`mailto:${val}`} style={{ color:"#1a1a1a" }}>{val}</a>:val}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser]         = useState(null);
+  const [data, setData]         = useState(loadData);
+  const [tab, setTab]           = useState("prijslijst");
+  const [cat, setCat]           = useState("all");
+  const [search, setSearch]     = useState("");
+  const [showIdx, setShowIdx]   = useState(false);
+  const [editProd, setEditProd] = useState(null);
+  const [flash, setFlash]       = useState("");
+  const isAdmin = user?.role === "admin";
+
+  const persist = useCallback(nd => {
+    setData(nd);
+    saveData(nd);
+    setFlash("✓ Opgeslagen");
+    setTimeout(()=>setFlash(""), 2200);
+  }, []);
+
+  const allProducts = useMemo(()=>
+    data.categories.flatMap(c=>c.products.map(p=>({...p,categoryId:c.id,categoryName:c.name})))
+  ,[data]);
+
+  const filtered = useMemo(()=>
+    allProducts.filter(p=>
+      (cat==="all"||p.categoryId===cat) &&
+      (!search||p.name.toLowerCase().includes(search.toLowerCase())||p.format.toLowerCase().includes(search.toLowerCase()))
+    )
+  ,[allProducts,cat,search]);
+
+  const applyIndex = (year, pct) => {
+    if (isNaN(pct)) return;
+    const f = 1 + pct/100;
+    persist({
+      ...data,
+      lastUpdated: today(),
+      indexHistory: [...data.indexHistory, { year, pct, date: today() }],
+      categories: data.categories.map(cat=>({
+        ...cat,
+        products: cat.products.map(p=>({
+          ...p,
+          quantities: p.quantities.map(q=>({
+            qty: q.qty,
+            total: Math.round(q.total*f*100)/100,
+            perPiece: Math.round(q.perPiece*f*10000)/10000,
+          })),
+        })),
+      })),
+    });
+    setShowIdx(false);
+  };
+
+  const saveProd = form => {
+    const newCats = data.categories.map(c=>{
+      const prods = c.products.filter(p=>p.id!==form.id);
+      if (c.id===form.categoryId) prods.push({ id:form.id, name:form.name, format:form.format, orientation:form.orientation, pages:form.pages, specs:form.specs, quantities:form.quantities });
+      return {...c,products:prods};
+    });
+    persist({...data, lastUpdated:today(), categories:newCats});
+    setEditProd(null);
+  };
+
+  if (!user) return <LoginScreen onLogin={setUser}/>;
+
+  const TABS = [
+    {id:"prijslijst",label:"Prijslijst"},
+    {id:"diensten",label:"Diensten & IT"},
+    {id:"fulfilment",label:"Fulfilment & Opslag"},
+    {id:"contacten",label:"Contacten"},
+  ];
+
+  return (
+    <div style={{ fontFamily:"'DM Sans',sans-serif", background:"#f5f3ef", minHeight:"100vh" }}>
+
+      {/* ── HEADER ── */}
+      <header style={{ background:"#1a1a1a", color:"#fff", padding:"0 40px" }}>
+        <div style={{ maxWidth:1400, margin:"0 auto" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 0 14px" }}>
+            <div>
+              <div style={{ fontSize:10, letterSpacing:4, color:"#888", marginBottom:5, textTransform:"uppercase" }}>Merz Marketingservices</div>
+              <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:25 }}>Buroform Portal</div>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              {flash && <div style={{ fontSize:12, color:"#6abf69", background:"#f0faf0", border:"1px solid #c3e6c3", borderRadius:4, padding:"5px 12px" }}>{flash}</div>}
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:10, color:"#666", letterSpacing:1, textTransform:"uppercase" }}>Ingelogd als</div>
+                <div style={{ fontSize:12, color:"#ddd" }}>{user.displayName}</div>
+                <div style={{ fontSize:10, color:"#c8a96e", letterSpacing:1, textTransform:"uppercase" }}>{isAdmin?"⚙ Beheerder":"◎ Viewer"}</div>
+              </div>
+              <div style={{ width:1, height:32, background:"#333", margin:"0 4px" }}/>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:10, color:"#666", letterSpacing:1, textTransform:"uppercase" }}>Update</div>
+                <div style={{ fontSize:12, color:"#ccc" }}>{data.lastUpdated}</div>
+              </div>
+              {isAdmin && tab==="prijslijst" && (
+                <button onClick={()=>setShowIdx(true)} style={{ background:"#c8a96e", color:"#1a1a1a", border:"none", borderRadius:4, padding:"9px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  Indexeren
+                </button>
+              )}
+              {!isAdmin && (
+                <button onClick={()=>window.print()} className="np" style={{ background:"#c8a96e", color:"#1a1a1a", border:"none", borderRadius:4, padding:"9px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  ↓ PDF
+                </button>
+              )}
+              <button onClick={()=>setUser(null)} className="np" style={{ background:"none", border:"1px solid #333", borderRadius:4, color:"#777", padding:"8px 13px", fontSize:11, cursor:"pointer" }}>
+                Uitloggen
+              </button>
+            </div>
+          </div>
+          <div style={{ display:"flex", borderTop:"1px solid #242424" }}>
+            {TABS.map(t=>(
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{ background:"none", border:"none", borderBottom:tab===t.id?"3px solid #c8a96e":"3px solid transparent", color:tab===t.id?"#fff":"#666", padding:"13px 20px", fontSize:13, fontWeight:tab===t.id?600:400, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+                {t.label}
+                {isAdmin && <span style={{ fontSize:9, marginLeft:5, color:"#c8a96e", opacity:0.7 }}>EDIT</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* ── INDEX HISTORY BAR ── */}
+      {tab==="prijslijst" && data.indexHistory.length>0 && (
+        <div style={{ background:"#f0ebe2", borderBottom:"1px solid #ddd5c0", padding:"8px 40px" }}>
+          <div style={{ maxWidth:1400, margin:"0 auto", display:"flex", gap:14, alignItems:"center", flexWrap:"wrap" }}>
+            <span style={{ fontSize:10, letterSpacing:2, color:"#999", textTransform:"uppercase" }}>Indexhistoriek:</span>
+            {data.indexHistory.map((h,i)=>(
+              <span key={i} style={{ fontSize:11, color:"#666", background:"#fff", border:"1px solid #e0d8cc", borderRadius:3, padding:"3px 9px" }}>
+                {h.year}: {h.pct>0?"+":""}{h.pct}% ({h.date})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── PRIJSLIJST ── */}
+      {tab==="prijslijst" && (<>
+        <div className="np" style={{ background:"#fff", borderBottom:"1px solid #e8e0d0", padding:"12px 40px", position:"sticky", top:0, zIndex:10 }}>
+          <div style={{ maxWidth:1400, margin:"0 auto", display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
+            <input type="text" placeholder="Zoeken op product of formaat…" value={search} onChange={e=>setSearch(e.target.value)} style={{...IS,width:260,background:"#f9f7f4"}}/>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {[{id:"all",name:"Alles"},...data.categories].map(c=>(
+                <button key={c.id} onClick={()=>setCat(c.id)} style={{ border:cat===c.id?"2px solid #1a1a1a":"1px solid #ddd", borderRadius:4, padding:"5px 12px", fontSize:12, fontWeight:cat===c.id?600:400, background:cat===c.id?"#1a1a1a":"#fff", color:cat===c.id?"#fff":"#555", cursor:"pointer" }}>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <span style={{ marginLeft:"auto", fontSize:11, color:"#bbb" }}>{filtered.length} producten (excl. BTW)</span>
+          </div>
+        </div>
+        <main style={{ maxWidth:1400, margin:"0 auto", padding:"26px 40px" }}>
+          {filtered.map(p=><ProductRow key={p.id} product={p} isAdmin={isAdmin} onEdit={setEditProd}/>)}
+          {filtered.length===0 && <div style={{ textAlign:"center", padding:60, color:"#ccc" }}>Geen producten gevonden</div>}
+        </main>
+      </>)}
+
+      {/* ── DIENSTEN ── */}
+      {tab==="diensten" && (
+        <main style={{ maxWidth:1400, margin:"0 auto", padding:"30px 40px" }}>
+          {isAdmin ? <DienstenAdmin data={data} onChange={persist}/> : <DienstenView data={data}/>}
+        </main>
+      )}
+
+      {/* ── FULFILMENT ── */}
+      {tab==="fulfilment" && (
+        <main style={{ maxWidth:1400, margin:"0 auto", padding:"30px 40px" }}>
+          {isAdmin ? <FulfilmentAdmin data={data} onChange={persist}/> : <FulfilmentView data={data}/>}
+        </main>
+      )}
+
+      {/* ── CONTACTEN ── */}
+      {tab==="contacten" && (
+        <main style={{ maxWidth:1400, margin:"0 auto", padding:"30px 40px" }}>
+          {isAdmin ? <ContactenAdmin data={data} onChange={persist}/> : <ContactenView data={data}/>}
+        </main>
+      )}
+
+      {/* ── MODALS ── */}
+      {showIdx  && <IndexModal onApply={applyIndex} onClose={()=>setShowIdx(false)}/>}
+      {editProd && <EditProductModal product={editProd} categories={data.categories} onSave={saveProd} onClose={()=>setEditProd(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
